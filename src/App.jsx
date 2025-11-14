@@ -12,10 +12,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("Summary");
 
   // API base: use local backend in dev, and proxy / function in production
-  const API_BASE =
-    import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_API_URL || "http://localhost:8000"
-      : import.meta.env.VITE_API_PROXY || "/.netlify/functions/proxy";
+const API_BASE =
+  import.meta.env.MODE === "development"
+    ? import.meta.env.VITE_API_URL || "http://localhost:8000"
+    : import.meta.env.VITE_API_PROXY || "/api/proxy";
+
 
   // upload + status
   const [file, setFile] = useState(null);
