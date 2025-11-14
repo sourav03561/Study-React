@@ -11,6 +11,12 @@ import AskQuestions from "./components/AskQuestions.jsx";
 export default function App() {
   const [activeTab, setActiveTab] = useState("Summary");
 
+  // API base: use local backend in dev, and proxy / function in production
+  const API_BASE =
+    import.meta.env.MODE === "development"
+      ? import.meta.env.VITE_API_URL || "http://localhost:8000"
+      : import.meta.env.VITE_API_PROXY || "/.netlify/functions/proxy";
+
   // upload + status
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -54,8 +60,10 @@ export default function App() {
     setVideos([]);
   }
 
+  // NOTE: callForm now uses API_BASE
   async function callForm(path, form) {
-    const res = await fetch(path, { method: "POST", body: form });
+    const url = `${API_BASE}${path}`;
+    const res = await fetch(url, { method: "POST", body: form });
     const text = await res.text();
     if (!res.ok) throw new Error(`HTTP ${res.status} – ${text}`);
     return JSON.parse(text);
@@ -88,6 +96,7 @@ export default function App() {
       form.append("num_questions", "6");
       form.append("difficulty", "medium");
 
+      // CALL uses API_BASE now
       const json = await callForm("/api/study_material", form);
 
       setSummary(json.summary || "");
@@ -116,7 +125,7 @@ export default function App() {
     (async () => {
       try {
         const payload = { key_points: keyPoints.slice(0, 8), max_results: 8 };
-        const res = await fetch("/api/recommend_videos", {
+        const res = await fetch(`${API_BASE}/api/recommend_videos`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -181,7 +190,7 @@ export default function App() {
       )}
       {hasResults && activeTab === "Ask" && (
         <AskQuestions pdfText={rawText} />
-        )}
+      )}
 
     </div>
   );
