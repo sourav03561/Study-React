@@ -12,11 +12,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("Summary");
 
   // API base: use local backend in dev, and proxy / function in production
-const API_BASE =
-  import.meta.env.MODE === "development"
-    ? import.meta.env.VITE_API_URL || "http://localhost:8000"
-    : import.meta.env.VITE_API_PROXY || "/api/proxy";
-
+  const API_BASE =
+    import.meta.env.MODE === "development"
+      ? import.meta.env.VITE_API_URL || "http://localhost:8000"
+      : import.meta.env.VITE_API_PROXY || "/.netlify/functions/proxy";
 
   // upload + status
   const [file, setFile] = useState(null);
@@ -98,7 +97,8 @@ const API_BASE =
       form.append("difficulty", "medium");
 
       // CALL uses API_BASE now
-      const json = await callForm("/api/study_material", form);
+      const json = await fetch(`${API_BASE}/api/study_material`, { method: "POST", body: form });
+
 
       setSummary(json.summary || "");
       setKeyTopics(Array.isArray(json.key_topics) ? json.key_topics : []);
@@ -127,10 +127,11 @@ const API_BASE =
       try {
         const payload = { key_points: keyPoints.slice(0, 8), max_results: 8 };
         const res = await fetch(`${API_BASE}/api/recommend_videos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+
         if (!res.ok) {
           const txt = await res.text();
           console.error("Video API error:", res.status, txt);
