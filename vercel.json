@@ -6,6 +6,7 @@
   ],
   "routes": [
     { "src": "/api/proxy/(.*)", "dest": "/api/proxy/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "handle": "filesystem" },               // <-- serve real files first
+    { "src": "/(.*)", "dest": "/index.html" } // <-- then rewrite SPA routes
   ]
 }
