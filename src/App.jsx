@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useMemo, useState, useEffect } from "react";
 import Tabs from "./components/Tabs.jsx";
 import UploadCard from "./components/UploadCard.jsx";
@@ -9,19 +10,23 @@ import { Brain } from "lucide-react";
 import AskQuestions from "./components/AskQuestions.jsx";
 
 /**
- * App.jsx
- * - use API_BASE for production (proxy) and local dev
- * - robust fetch helpers that call res.text() directly and parse JSON safely
+ * Single-file App.jsx (fetch-based)
+ * - No api.js
+ * - No vite.config.js changes required
+ *
+ * IMPORTANT: Because this file calls your backend directly (hard-coded below),
+ * the backend MUST allow CORS from your dev/origin (e.g. http://localhost:5173 or your production origin).
+ *
+ * If you don't want to enable CORS on the backend, you must either:
+ *  - use a Vite proxy (requires modifying vite.config.js), OR
+ *  - use a serverless proxy on your hosting provider (e.g. Vercel functions).
  */
+
+// <-- change this if your backend URL differs
+const BASE_URL = "http://13.61.14.126:8000/api";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("Summary");
-
-  // API base: local in dev; in production use proxy path (Netlify or Vercel)
-  const API_BASE =
-    import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_API_URL || "http://localhost:8000"
-      : import.meta.env.VITE_API_PROXY || "/.netlify/functions/proxy"; // change to "/api/proxy" for Vercel
 
   // upload + status
   const [file, setFile] = useState(null);
@@ -35,7 +40,7 @@ export default function App() {
   const [keyPoints, setKeyPoints] = useState([]);
   const [flashcards, setFlashcards] = useState([]);
   const [quiz, setQuiz] = useState([]);
-  const [videos, setVideos] = useState([]); // <-- videos state
+  const [videos, setVideos] = useState([]);
   const [rawText, setRawText] = useState("");
   const [ocrPages, setOcrPages] = useState([]);
   const [pageCount, setPageCount] = useState(0);
@@ -65,26 +70,19 @@ export default function App() {
     setVideos([]);
   }
 
-  // Robust helper: POST form or JSON and return parsed JSON or raw text
-  async function postAndParse(url, options = {}) {
-    // options: { method, headers, body }
+  // fetch helper that returns parsed JSON or throws an error with body text
+  async function fetchJson(url, options = {}) {
     const res = await fetch(url, options);
-
-    // Always call res.text() directly on the Response object
-    const bodyText = await res.text();
-
-    // For easier debugging: log response body on non-OK
+    const text = await res.text();
     if (!res.ok) {
-      console.error("Request failed", { url, status: res.status, bodyText });
-      throw new Error(`HTTP ${res.status} – ${bodyText}`);
+      // include body text for debugging (trimmed)
+      throw new Error(`HTTP ${res.status} - ${text?.slice(0, 1000) || ""}`);
     }
-
-    // Try to parse JSON, otherwise return raw text
     try {
-      return JSON.parse(bodyText);
-    } catch (e) {
-      // Not JSON, return raw text
-      return bodyText;
+      return JSON.parse(text);
+    } catch {
+      // if not JSON, return raw text
+      return text;
     }
   }
 
@@ -115,19 +113,15 @@ export default function App() {
       form.append("num_questions", "6");
       form.append("difficulty", "medium");
 
-      // ensure no double slashes
-      const base = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
-      const url = `${base}/api/study_material`;
+      const url = `${BASE_URL}/study_material`;
 
-      // POST form (file upload)
-      const json = await postAndParse(url, { method: "POST", body: form });
+      // direct fetch to backend
+      const json = await fetchJson(url, {
+        method: "POST",
+        body: form,
+      });
 
-      // If your proxy returns base64 or unusual wrapper, json might be string; handle defensively
-      if (!json || typeof json === "string") {
-        // show raw server response in UI for debugging
-        throw new Error(`Unexpected response: ${String(json).slice(0, 500)}`);
-      }
-
+      // populate UI state defensively
       setSummary(json.summary || "");
       setKeyTopics(Array.isArray(json.key_topics) ? json.key_topics : []);
       setKeyPoints(Array.isArray(json.key_points) ? json.key_points : []);
@@ -139,9 +133,8 @@ export default function App() {
 
       setActiveTab("Summary");
     } catch (e) {
-      // present friendly error and log
       console.error("onGeneratePack error:", e);
-      setErr(String(e));
+      setErr(String(e.message || e));
     } finally {
       setLoading(false);
     }
@@ -155,31 +148,14 @@ export default function App() {
 
     (async () => {
       try {
-        const base = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
-        const url = `${base}/api/recommend_videos`;
         const payload = { key_points: keyPoints.slice(0, 8), max_results: 8 };
-
-        const res = await fetch(url, {
+        const url = `${BASE_URL}/recommend_videos`;
+        const json = await fetchJson(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-
-        const text = await res.text();
-        if (!res.ok) {
-          console.error("Video API error:", res.status, text);
-          return;
-        }
-
-        let json;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          console.warn("recommend_videos returned non-JSON:", text);
-          json = null;
-        }
-
-        setVideos((json && json.videos) || []);
+        setVideos(json.videos || []);
       } catch (err) {
         console.error("Failed to fetch videos:", err);
       }
@@ -189,9 +165,8 @@ export default function App() {
   // Ask question helper (if used)
   async function askQuestion(question) {
     try {
-      const base = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
-      const url = `${base}/api/ask_question`;
-      const json = await postAndParse(url, {
+      const url = `${BASE_URL}/ask_question`;
+      const json = await fetchJson(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: rawText, question }),
