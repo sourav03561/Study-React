@@ -1,12 +1,19 @@
 {
   "version": 2,
   "builds": [
-    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    },
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
   ],
   "routes": [
     { "src": "/api/proxy/(.*)", "dest": "/api/proxy/$1" },
-    { "handle": "filesystem" },               // <-- serve real files first
-    { "src": "/(.*)", "dest": "/index.html" } // <-- then rewrite SPA routes
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
